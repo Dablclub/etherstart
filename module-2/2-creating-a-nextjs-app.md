@@ -15,7 +15,7 @@ Would you like to use ESLint?  Yes
 Would you like to use Tailwind CSS?  Yes
 Would you like to use `src/` directory?  Yes
 Would you like to use App Router? (recommended)  Yes
-Would you like to customize the default import alias (@/*)?  Yes
+Would you like to customize the default import alias (@/*)?  No
 ```
 
 Once the CLI tool creates the project and installs the dependencies, you can start the development server by running the following script
@@ -33,26 +33,26 @@ For the bootcamp, we’re going to start with a base repository, which will incl
 Run this command in the cli to set up shadcn/ui in the NextJS project.
 
 ```
-npx shadcn@latest init
+npx shadcn@latest init -d
 ```
 
-Accept all the default options when prompted after entering the previous command.
+This will set up shadcn with the default options.
+
+Now we will add some shadcn/ui components:
 
 ```
-Which style would you like to use? › Default
-Which color would you like to use as base color? › Slate
-Would you like to use CSS variables for colors? yes
+npx shadcn@latest add button sheet sonner
 ```
 
-We will add some shadcn/ui components
+If you explore the [repository](https://github.com/Dablclub/etherstart), we have created some basic components for the layout, and we can see some of the files installed by shadcn/ui, in the `/components/ui` folder, the `/lib/utils.ts` and the `/styles/globals.css` files. Feel free to copy/paste these files into your project.
 
-```
-npx shadcn@latest add button
-npx shadcn@latest add sheet
-npx shadcn@latest add sonner
-```
+Files to update
 
-If you explore the [repository](https://github.com/angelmc32/react-to-web3-bootcamp), we have created some basic components for the layout, and we can see some of the files installed by shadcn/ui, in the `/components/ui` folder, the `/lib/utils.ts` and the `/styles/globals.css` files. Feel free to copy/paste these files into your project.
+- `/public` folder, copy and paste
+- `/src/app` folder replace `layout.tsx`, `not-found.tsx` and `page.tsx`
+- `/src/app` folder, copy and paste `icon.ico`
+- `/src/components/layout` folder, copy and paste
+- `/src/styles` folder, copy and paste
 
 ![NextJS project structure](https://react-to-web3-bootcamp.vercel.app/content/module-2/L1/2-project-structure.png)
 

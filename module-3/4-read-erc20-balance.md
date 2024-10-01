@@ -152,6 +152,7 @@ export default function SendErc20Modal({ userAddress }: SendErc20ModalProps) {
                   onChange={(event) => setTokenAmount(event.target.value)}
                 />
               </div>
+              <Button type="submit">Send ERC20</Button>
             </form>
           </div>
         ) : (
@@ -165,7 +166,7 @@ export default function SendErc20Modal({ userAddress }: SendErc20ModalProps) {
 
 As you can see, one of our imports is the BootcampTokenABI. If you’ve cloned the repository, you can find the ABI in src/lib/contracts/BootcampTokenABI.ts
 
-You can also copy and paste it from [our Github repository](https://github.com/angelmc32/react-to-web3-bootcamp/blob/main/next-app/src/lib/contracts/BootcampTokenABI.ts)
+You can also copy and paste it from [our Github repository](https://github.com/dablclub/etherstart/blob/main/next-app/src/lib/contracts/BootcampTokenABI.ts)
 
 Also, make sure to create a .env.local file and place this variable in it:
 
@@ -257,12 +258,12 @@ export function Account() {
 
 	return(
 		...
-		 <div className="flex justify-center gap-x-8">
+		  <div className="flex justify-center gap-x-8">
         <div className="w-2/5">
           <SendEthModal />
         </div>
         <div className="w-2/5">
-          <SendErc20Modal userAddress={userAddress} />
+          <SendErc20Modal userAddress={address} />
         </div>
       </div>
 ...

@@ -19,7 +19,7 @@ ConnectKit uses [WalletConnect](https://walletconnect.com/)'s SDK to help with c
 
 Now we will create a wrapper to provide our application with the methods that the installed libraries offer us: Wagmi, TanStack Query and ConnectKit. We will import the required providers and create a config using wagmi's createConfig method. ConnectKit supplies a pre-configured getDefaultConfig function to simplify the process of creating a config.
 
-`/src/providers/web3Provider.ts`
+`/src/providers/web3Provider.tsx`
 
 ```
 'use client';
@@ -37,7 +37,7 @@ const config = createConfig(
     transports: {
       // RPC URL for each chain
       [polygonZkEvmCardona.id]: http(
-`https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_ID}`
+        `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_ID}`
       ),
     },
 
@@ -46,10 +46,10 @@ const config = createConfig(
       process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '',
 
     // Required App Info
-    appName: 'React to Web3 Bootcamp',
+    appName: 'EtherStart',
 
     // Optional App Info
-    appDescription: 'React to Web3 Bootcamp',
+    appDescription: 'Become a dApp developer in 2 weeks',
     appUrl: 'https://localhost:3000', // your app's url
     appIcon: 'https://localhost:3000/dablclub-512x512.png', // your app's icon, no bigger than 1024x1024px (max. 1MB)
   })
@@ -79,7 +79,7 @@ What’s happening here?
 
 Now that we have created our Web3Provider, we will use it in the `layout.tsx` file, as mentioned before: wrapping all children elements and providing access to the libraries methods and variables.
 
-`/src/providers/web3Provider.ts`
+`/src/app/layout.tsx`
 
 ```
 import type { Metadata } from 'next';
@@ -90,8 +90,8 @@ import { cn } from '@/lib/utils';
 import { Web3Provider } from '@/providers/web3Provider';
 
 export const metadata: Metadata = {
-  title: 'React to Web3 Bootcamp',
-  description: 'React to Web3 Bootcamp',
+  title: 'EtherStart',
+  description: 'Become a dApp developer in 2 weeks',
 };
 
 const fontSans = FontSans({
@@ -119,9 +119,12 @@ export default function RootLayout({
     </html>
   );
 }
+
 ```
 
 And we can test the wallet connection by using the ConnectKitButton component that ConnectKit has. It works out-of-the-box, so we just need to import it and place it inside our main page component to test it.
+
+`/src/app/page.tsx`
 
 ```
 'use client';
@@ -134,13 +137,156 @@ export default function Home() {
     <PageWithNavbar>
       <div className="page">
         <div className="container md:pt-4 lg:pt-12 xl:pt-20">
-          <h1 className="mb-4 text-6xl">React to Web3 Bootcamp</h1>
+          <h1 className="mb-4 text-6xl">EtherStart</h1>
           <div className="py-8">
             <ConnectKitButton />
           </div>
         </div>
       </div>
     </PageWithNavbar>
+  );
+}
+```
+
+And we will update our Navbar to show the same Connect Wallet button
+
+`/src/component/layout/navbar.tsx`
+
+```
+'use client';
+
+import Image from 'next/image';
+import Link from 'next/link';
+import MobileMenu from './mobileMenu';
+import { usePathname } from 'next/navigation';
+import { Button } from '../ui/button';
+import { toast } from 'sonner';
+import { ConnectKitButton } from 'connectkit';
+
+export type MenuItemType = {
+  displayText: string;
+  href: string;
+  isMobileOnly: boolean;
+  isExternal?: boolean;
+};
+
+const MENU_ITEMS: MenuItemType[] = [
+  { displayText: 'etherstart', href: '/', isMobileOnly: false },
+  {
+    displayText: 'repo',
+    href: 'https://github.com/Dablclub/etherstart',
+    isMobileOnly: false,
+    isExternal: true,
+  },
+  {
+    displayText: 'docs',
+    href: 'https://github.com/Dablclub/etherstart/blob/main/README.md',
+    isMobileOnly: false,
+    isExternal: true,
+  },
+  { displayText: 'faq', href: '/faq', isMobileOnly: false },
+];
+
+export default function Navbar() {
+  const pathname = usePathname();
+
+  return (
+    <header className="h-20 w-full bg-background">
+      <div className="mx-auto flex h-full w-full max-w-3xl items-center justify-between px-4 sm:px-6 lg:grid lg:max-w-7xl lg:grid-cols-3 lg:px-8">
+        <div>
+          <Link className="flex w-20 items-center" href="/">
+            <Image
+              src="/images/logos/dabl-club-logo-black.png"
+              alt="Dabl Club logo"
+              width={512}
+              height={512}
+              className="h-20 w-20 transition duration-300 ease-in-out hover:scale-90"
+            />
+            <span className="sr-only">Dabl Club</span>
+          </Link>
+        </div>
+        <div className="flex items-center justify-center">
+          <nav className="hidden gap-6 lg:flex">
+            {MENU_ITEMS.filter((menuItem) => !menuItem.isMobileOnly).map(
+              (menuItem, index) => (
+                <Link
+                  key={`${menuItem.displayText}-menuItem-${index}`}
+                  className={`inline-flex items-center justify-center px-4 py-2 text-lg font-medium text-foreground transition-colors hover:text-primary focus:text-primary focus:outline-none ${
+                    pathname === menuItem.href &&
+                    'pointer-events-none underline decoration-primary decoration-[1.5px] underline-offset-[6px] hover:!text-foreground'
+                  }`}
+                  href={menuItem.href}
+                  target={menuItem.isExternal ? '_blank' : ''}
+                >
+                  {menuItem.displayText}
+                </Link>
+              )
+            )}
+          </nav>
+        </div>
+        <div className="hidden lg:flex lg:justify-end">
+          <ConnectKitButton />
+        </div>
+        <MobileMenu menuItems={MENU_ITEMS} pathname={pathname} />
+      </div>
+    </header>
+  );
+}
+```
+
+And also on the mobile menu (hamburger)
+
+`/src/component/layout/navbar.tsx`
+
+```
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { SheetTrigger, SheetContent, Sheet } from '@/components/ui/sheet';
+import { MenuIcon } from 'lucide-react';
+import { MenuItemType } from './navbar';
+import { Button } from '../ui/button';
+import { toast } from 'sonner';
+import { ConnectKitButton } from 'connectkit';
+
+type MobileMenuProps = {
+  menuItems?: MenuItemType[];
+  pathname: string;
+};
+
+export default function MobileMenu({ menuItems, pathname }: MobileMenuProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  return (
+    <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+      <SheetTrigger asChild>
+        <button className="bg-transparent p-1.5 text-white lg:hidden">
+          <MenuIcon className="h-8 w-8 text-primary" />
+          <span className="sr-only">Toggle navigation menu</span>
+        </button>
+      </SheetTrigger>
+      <SheetContent side="right">
+        <div className="grid gap-2 py-6">
+          {menuItems?.map((menuItem, index) => (
+            <Link
+              key={`${menuItem.displayText}-menuItem-${index}`}
+              className={`inline-flex items-center justify-center px-4 py-2 text-lg font-medium text-foreground transition-colors hover:text-primary focus:text-primary focus:outline-none ${
+                pathname === menuItem.href &&
+                'pointer-events-none underline decoration-primary decoration-[1.5px] underline-offset-[6px] hover:!text-foreground'
+              }`}
+              href={menuItem.href}
+              target={menuItem.isExternal ? '_blank' : ''}
+            >
+              {menuItem.displayText}
+            </Link>
+          ))}
+          <div className="flex justify-center py-2">
+            <ConnectKitButton />
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 ```

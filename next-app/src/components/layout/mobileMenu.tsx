@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { SheetTrigger, SheetContent, Sheet } from '@/components/ui/sheet';
 import { MenuIcon } from 'lucide-react';
 import { MenuItemType } from './navbar';
-import { Button } from '../ui/button';
-import { toast } from 'sonner';
 import { ConnectKitButton } from 'connectkit';
 
 type MobileMenuProps = {

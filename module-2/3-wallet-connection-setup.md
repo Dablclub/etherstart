@@ -9,10 +9,10 @@ During this bootcamp, we will be using Viem in tandem with Wagmi for blockchain 
 - [ConnectKit](https://docs.family.co/connectkit) is a React component library for connecting a wallet to our decentralized application.
 - [TanStack Query](https://tanstack.com/query/latest) is an async state manager that handles requests, caching, and more.
 
-Let’s install Wagmi along with TanStack Query, Viem, and ConnectKit:
+Let’s install Wagmi along with TanStack Query, Viem, and ConnectKit. We will also add a couple of dependencies, `encoding` and `pino-pretty`, as other packages do not handle the installation correctly and when we try to deploy, we will have a warning (Module not found: Can't resolve...) and we don't like that.
 
 ```
-npm install connectkit wagmi viem@2.x @tanstack/react-query
+npm install connectkit wagmi viem@2.x @tanstack/react-query encoding pino-pretty
 ```
 
 ConnectKit uses [WalletConnect](https://walletconnect.com/)'s SDK to help with connecting wallets. WalletConnect 2.0 requires a “projectId” which you can create quickly and easily for free over at [WalletConnect Cloud](https://cloud.walletconnect.com/sign-in). This is not a requirement for the bootcamp, but if you want to enable WalletConnect, you will need to complete this step.

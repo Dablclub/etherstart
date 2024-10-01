@@ -15,6 +15,9 @@ const config = createConfig(
       [polygonZkEvmCardona.id]: http(
         `https://polygonzkevm-cardona.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
       ),
+      [polygon.id]: http(
+        `https://polygon-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+      ),
     },
 
     // Required API Keys

@@ -2,8 +2,15 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 import { PriceResponse } from '../../types/index';
-import { useBalance, useChainId } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import {
+  useBalance,
+  useChainId,
+  useReadContract,
+  useSimulateContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi';
+import { Address, erc20Abi, formatUnits, parseUnits } from 'viem';
 import qs from 'qs';
 
 import {
@@ -26,6 +33,7 @@ import { Input } from '../ui/input';
 import {
   AFFILIATE_FEE,
   FEE_RECIPIENT,
+  MAX_ALLOWANCE,
   POLYGON_TOKENS,
   POLYGON_TOKENS_BY_SYMBOL,
   Token,
@@ -43,6 +51,7 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
   const [buyToken, setBuyToken] = useState('usdc');
   const [buyAmount, setBuyAmount] = useState('');
   const [price, setPrice] = useState<PriceResponse | undefined>();
+  const [finalize, setFinalize] = useState(false);
   const [tradeDirection, setSwapDirection] = useState('sell');
   const [error, setError] = useState([]);
   const [buyTokenTax, setBuyTokenTax] = useState({
@@ -157,8 +166,6 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
     token: sellTokenObject.address,
   });
 
-  console.log('taker sellToken balance: ', data);
-
   const inSufficientBalance =
     data && sellAmount
       ? parseUnits(sellAmount, sellTokenDecimals) > data.value
@@ -271,7 +278,13 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
                   />
                 </div>
               </div>
-              <Button>Swap</Button>
+              <ApproveOrReviewButton
+                sellTokenAddress={POLYGON_TOKENS_BY_SYMBOL[sellToken].address}
+                userAddress={userAddress as `0x${string}`}
+                onClick={() => setFinalize(true)}
+                disabled={inSufficientBalance}
+                price={price}
+              />
             </form>
           </div>
         ) : (
@@ -279,5 +292,116 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ApproveOrReviewButton({
+  userAddress,
+  onClick,
+  sellTokenAddress,
+  disabled,
+  price,
+}: {
+  userAddress: Address;
+  onClick: () => void;
+  sellTokenAddress: Address;
+  disabled?: boolean;
+  price: any;
+}) {
+  // If price.issues.allowance is null, show the Review Trade button
+  if (price?.issues.allowance === null) {
+    return (
+      <Button
+        disabled={disabled}
+        onClick={() => {
+          // fetch data, when finished, show quote view
+          onClick();
+        }}
+      >
+        {disabled ? 'Insufficient Balance' : 'Review Trade'}
+      </Button>
+    );
+  }
+
+  // Determine the spender from price.issues.allowance
+  const spender = price?.issues.allowance.spender;
+
+  // 1. Read from erc20, check approval for the determined spender to spend sellToken
+  const { data: allowance, refetch } = useReadContract({
+    address: sellTokenAddress,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: [userAddress, spender],
+  });
+  console.log('checked spender approval');
+
+  // 2. (only if no allowance): write to erc20, approve token allowance for the determined spender
+  const { data } = useSimulateContract({
+    address: sellTokenAddress,
+    abi: erc20Abi,
+    functionName: 'approve',
+    args: [spender, MAX_ALLOWANCE],
+  });
+
+  // Define useWriteContract for the 'approve' operation
+  const {
+    data: writeContractResult,
+    writeContractAsync: writeContract,
+    error,
+  } = useWriteContract();
+
+  // useWaitForTransactionReceipt to wait for the approval transaction to complete
+  const { data: approvalReceiptData, isLoading: isApproving } =
+    useWaitForTransactionReceipt({
+      hash: writeContractResult,
+    });
+
+  async function onClickHandler(event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+
+    try {
+      await writeContract({
+        abi: erc20Abi,
+        address: sellTokenAddress,
+        functionName: 'approve',
+        args: [spender, MAX_ALLOWANCE],
+      });
+      refetch();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  // Call `refetch` when the transaction succeeds
+  useEffect(() => {
+    if (data) {
+      refetch();
+    }
+  }, [data, refetch]);
+
+  if (error) {
+    return <div>Something went wrong: {error.message}</div>;
+  }
+
+  if (allowance === 0n) {
+    return (
+      <>
+        <Button onClick={onClickHandler}>
+          {isApproving ? 'Approving…' : 'Approve'}
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <Button
+      disabled={disabled}
+      onClick={() => {
+        // fetch data, when finished, show quote view
+        onClick();
+      }}
+    >
+      {disabled ? 'Insufficient Balance' : 'Review Trade'}
+    </Button>
   );
 }

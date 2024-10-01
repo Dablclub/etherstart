@@ -6,6 +6,7 @@ import { mainnet } from 'viem/chains';
 import Image from 'next/image';
 import SendEthModal from './sendEthModal';
 import SendErc20Modal from './sendErc20Modal';
+import SwapErc20Modal from './swapErc20Modal';
 
 export function Account() {
   const [isMounted, setIsMounted] = useState(false);
@@ -76,11 +77,14 @@ export function Account() {
         )}
       </div>
       <div className="flex justify-center gap-x-8">
-        <div className="w-2/5">
+        <div className="w-1/3">
           <SendEthModal />
         </div>
-        <div className="w-2/5">
+        <div className="w-1/3">
           <SendErc20Modal userAddress={address} />
+        </div>
+        <div className="w-1/3">
+          <SwapErc20Modal userAddress={address} />
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useAccount, useBalance, useEnsAvatar, useEnsName } from 'wagmi';
 import { useEffect, useState } from 'react';
 import { mainnet } from 'viem/chains';
 import Image from 'next/image';
+import SendEthModal from './sendEthModal';
 
 export function Account() {
   const [isMounted, setIsMounted] = useState(false);
@@ -73,6 +74,7 @@ export function Account() {
           </>
         )}
       </div>
+      <SendEthModal />
     </div>
   );
 }

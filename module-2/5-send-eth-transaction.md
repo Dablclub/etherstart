@@ -12,7 +12,11 @@ https://faucet.polygon.technology/
 
 Now, let’s create a transaction. Wagmi has the perfect hook that will allow us to quickly set up a form that accepts an address and an amount value. We can pass these variables to the hook, and it will prompt our users for confirmation upon hitting the submit button of the form.
 
-We will create a modal component using shadcn/ui’s Dialog, alongside other components:
+We will create a modal component using shadcn/ui’s Dialog, alongside other components. For this, we first need to install the required shadcn/ui components, using shadcn/ui's cli:
+
+`npx shadcn@latest add dialog input label`
+
+Then create our new sendEthModal component:
 
 `/src/components/web3/sendEthModal.tsx`
 
@@ -131,6 +135,45 @@ Let’s quickly review the component:
 - We are rendering a button that opens a modal with the form for sending ETH, and we conditionally render the transaction data once we have it available, such as a link to the block explorer tracking the transaction, and a status message.
 
 Bonus: Ideally, we should do some input validation to make sure that only valid addresses are accepted, and that the eth amount entered is not greater than the current balance.
+
+Time to deploy our component into our front-end. It makes most sense to place it as a childo of the Account component, as we want it to be accesible only if the user has connected their wallet:
+
+`/src/components/web3/account.tsx`
+
+```
+'use client';
+
+// previous imports...
+import SendEthModal from './sendEthModal';
+
+export function Account() {
+
+  // previous code...
+
+  return (
+    <div className="flex flex-col items-center text-center gap-y-4">
+
+      // previous code...
+
+      <div className="flex flex-col gap-y-2">
+        {accountBalance && isMounted && (
+          <p className="text-xl">Balance: {accountBalance.data?.value} ETH</p>
+        )}
+        {chain && chainId && isMounted && (
+          <>
+            <p className="text-lg">Chain: {chain.name}</p>
+            <p className="text-lg">Chain Id: {chainId}</p>
+          </>
+        )}
+      </div>
+
+      // HERE! We place our new component at the bottom
+      <SendEthModal />
+    </div>
+  );
+}
+
+```
 
 Here’s how our component looks:
 

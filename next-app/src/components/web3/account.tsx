@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { mainnet } from 'viem/chains';
 import Image from 'next/image';
 import SendEthModal from './sendEthModal';
+import SendErc20Modal from './sendErc20Modal';
 
 export function Account() {
   const [isMounted, setIsMounted] = useState(false);
@@ -74,7 +75,14 @@ export function Account() {
           </>
         )}
       </div>
-      <SendEthModal />
+      <div className="flex justify-center gap-x-8">
+        <div className="w-2/5">
+          <SendEthModal />
+        </div>
+        <div className="w-2/5">
+          <SendErc20Modal userAddress={address} />
+        </div>
+      </div>
     </div>
   );
 }

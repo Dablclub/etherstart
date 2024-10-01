@@ -12,7 +12,7 @@ import {
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 
-export default function SwitchNetworkModal() {
+export default function SwitchChainModal() {
   const [isMounted, setIsMounted] = useState(false);
   const { chains, switchChain } = useSwitchChain();
   console.log(chains);

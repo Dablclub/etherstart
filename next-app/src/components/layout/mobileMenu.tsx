@@ -2,7 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { SheetTrigger, SheetContent, Sheet } from '@/components/ui/sheet';
+import {
+  SheetTrigger,
+  SheetContent,
+  Sheet,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { MenuIcon } from 'lucide-react';
 import { MenuItemType } from './navbar';
 import { ConnectKitButton } from 'connectkit';
@@ -24,6 +29,7 @@ export default function MobileMenu({ menuItems, pathname }: MobileMenuProps) {
         </button>
       </SheetTrigger>
       <SheetContent side="right">
+        <SheetTitle className="sr-only">menu</SheetTitle>
         <div className="grid gap-2 py-6">
           {menuItems?.map((menuItem, index) => (
             <Link

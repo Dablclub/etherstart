@@ -97,8 +97,9 @@ In `SwapErc20Modal`, we use the Next.js App Router's built-in data fetching patt
 
 An overview to our `SwapErc20Modal` component needed updates:
 
-- Install `qs` package via npm i `qs`
-- Create a file where we will create our API response types: `types/index.ts`. Copy and paste [this file's content](https://github.com/angelmc32/react-to-web3-bootcamp/blob/main/next-app/types/index.ts), which include both the Price and Quote response interfaces, so we can better handle the integration of the Swap API with our code.
+- Install `qs` package via `npm i qs`
+- Install qs types via `npm i --save-dev @types/qs`
+- Create a file where we will create our API response types: `types/index.ts`. Copy and paste [this file's content](https://github.com/dablclub/etherstart/blob/main/next-app/types/index.ts), which include both the Price and Quote response interfaces, so we can better handle the integration of the Swap API with our code.
 - Import dependencies:
   - `qs` library and `PriceResponse` interface, which we just added to our project
   - useChainId wagmi hook to detect the user's current connected network

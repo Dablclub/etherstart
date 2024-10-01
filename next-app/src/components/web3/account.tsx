@@ -7,13 +7,17 @@ import Image from 'next/image';
 import SendEthModal from './sendEthModal';
 import SendErc20Modal from './sendErc20Modal';
 import SwapErc20Modal from './swapErc20Modal';
+import SwitchNetworkModal from './switchNetworkModal';
 
 export function Account() {
   const [isMounted, setIsMounted] = useState(false);
+
   const { address, chain, chainId, isConnected } = useAccount();
+
   const accountBalance = useBalance({
     address,
   });
+
   const { data: ensName } = useEnsName({
     address,
     chainId: mainnet.id,
@@ -66,7 +70,7 @@ export function Account() {
         </div>
       )}
       <div className="flex flex-col gap-y-2">
-        {accountBalance && isMounted && (
+        {accountBalance.data?.value && isMounted && (
           <p className="text-xl">Balance: {accountBalance.data?.value} ETH</p>
         )}
         {chain && chainId && isMounted && (
@@ -76,7 +80,7 @@ export function Account() {
           </>
         )}
       </div>
-      <div className="flex justify-center gap-x-8">
+      <div className="flex justify-center gap-x-3 px-4">
         <div className="w-1/3">
           <SendEthModal />
         </div>
@@ -84,7 +88,11 @@ export function Account() {
           <SendErc20Modal userAddress={address} />
         </div>
         <div className="w-1/3">
-          <SwapErc20Modal userAddress={address} />
+          {chainId === 137 ? (
+            <SwapErc20Modal userAddress={address} />
+          ) : (
+            <SwitchNetworkModal />
+          )}
         </div>
       </div>
     </div>

@@ -4,12 +4,12 @@ import { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, createConfig, WagmiProvider } from 'wagmi';
 import { ConnectKitProvider, getDefaultConfig } from 'connectkit';
-import { polygonZkEvmCardona } from 'wagmi/chains';
+import { polygon, polygonZkEvmCardona } from 'wagmi/chains';
 
 const config = createConfig(
   getDefaultConfig({
     // Your dApps chains
-    chains: [polygonZkEvmCardona],
+    chains: [polygonZkEvmCardona, polygon],
     transports: {
       // RPC URL for each chain
       [polygonZkEvmCardona.id]: http(

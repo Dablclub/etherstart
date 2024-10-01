@@ -2,8 +2,6 @@ import { type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  console.log('HERE!!!');
-  console.log('searchParams', searchParams);
   try {
     const res = await fetch(
       `https://api.0x.org/swap/permit2/price?${searchParams}`,

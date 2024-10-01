@@ -7,7 +7,7 @@ import Image from 'next/image';
 import SendEthModal from './sendEthModal';
 import SendErc20Modal from './sendErc20Modal';
 import SwapErc20Modal from './swapErc20Modal';
-import SwitchNetworkModal from './switchNetworkModal';
+import SwitchNetworkModal from './switchChainModal';
 
 export function Account() {
   const [isMounted, setIsMounted] = useState(false);

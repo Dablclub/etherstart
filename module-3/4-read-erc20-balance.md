@@ -85,7 +85,11 @@ export default function SendErc20Modal({ userAddress }: SendErc20ModalProps) {
     process.env.NEXT_PUBLIC_ERC20_CONTRACT_ADDRESS ??
     '0xd66cd7D7698706F8437427A3cAb537aBc12c8C88';
 
-  const { data: erc20Balance, isSuccess } = useReadContract({
+  const {
+    data: erc20Balance,
+    isSuccess,
+    refetch: refetchErc20Balance,
+  } = useReadContract({
     abi: BootcampTokenABI,
     address: erc20ContractAddress as `0x${string}`,
     functionName: 'balanceOf',

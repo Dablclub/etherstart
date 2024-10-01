@@ -8,9 +8,9 @@ But DeFi users don't want to just read that they have 0 balance for your token (
 
 Last lesson, we used the ABI for our custom ERC-20 token smart contract, BOOTCAMP.
 
-Remember, iff you’ve cloned the repository, you can find the ABI in `src/lib/contracts/BootcampTokenABI.ts`.
+Remember, if you’ve cloned the repository, you can find the ABI in `src/lib/contracts/BootcampTokenABI.ts`.
 
-You can also copy and paste it from [our Github repository](https://github.com/angelmc32/react-to-web3-bootcamp/blob/main/next-app/src/lib/contracts/BootcampTokenABI.ts)
+You can also copy and paste it from [our Github repository](https://github.com/dablclub/etherstart/blob/main/next-app/src/lib/contracts/BootcampTokenABI.ts)
 
 Reviewing last lesson's code for the smart contract, and knowing that it's compliant with the ERC-20 token standard, we could try to mint some tokens by calling the mint function, which is part of the ERC-20 standard. However, if you know a little bit about Solidity, you could see in our contract that only the smart contract’s owner can call the mint function.
 
@@ -134,12 +134,17 @@ The UI should update while the transaction is processed, and the transaction has
 Now, let’s see if we can send some of these tokens to any address that we choose. Once again, we will use the useWriteContract hook, but we will use a different function: transfer.
 
 ```
+// previous imports...
+import { formatEther, parseEther } from 'viem';
+import { ExternalLinkIcon } from 'lucide-react';
+import Link from 'next/link';
 ...
 
 export default function SendErc20Modal({ userAddress }: SendErc20ModalProps) {
 ...
 
-const [isPendingSend, setIsPendingSend] = useState(false);
+  const [isPendingClaim, setIsPendingClaim] = useState(false);
+  const [isPendingSend, setIsPendingSend] = useState(false);
 
 	...
 
@@ -163,7 +168,24 @@ const [isPendingSend, setIsPendingSend] = useState(false);
       setIsPendingSend(false);
     }
   }
-	...
+
+  async function refetchBalance() {
+    await refetchErc20Balance();
+  }
+
+  useEffect(() => {
+    if (!isMounted) {
+      setIsMounted(true);
+    }
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (isConfirmed) {
+      refetchBalance();
+      toast.success(`Sent ${tokenAmount} BOOTCAMP`);
+    }
+  }, [isConfirmed]);
+
 	return(
 		...
 	)

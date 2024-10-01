@@ -71,7 +71,9 @@ export function Account() {
       )}
       <div className="flex flex-col gap-y-2">
         {accountBalance.data?.value && isMounted && (
-          <p className="text-xl">Balance: {accountBalance.data?.value} ETH</p>
+          <p className="text-xl">
+            Balance: {accountBalance.data?.formatted} ETH
+          </p>
         )}
         {chain && chainId && isMounted && (
           <>

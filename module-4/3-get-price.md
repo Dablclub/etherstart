@@ -160,6 +160,7 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
   const [buyToken, setBuyToken] = useState('usdc');
   const [buyAmount, setBuyAmount] = useState('');
   const [price, setPrice] = useState<PriceResponse | undefined>();
+  const [finalize, setFinalize] = useState(false);
   const [tradeDirection, setSwapDirection] = useState('sell');
   const [error, setError] = useState([]);
   const [buyTokenTax, setBuyTokenTax] = useState({

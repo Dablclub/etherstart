@@ -7,6 +7,7 @@ import { MenuIcon } from 'lucide-react';
 import { MenuItemType } from './navbar';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
+import { ConnectKitButton } from 'connectkit';
 
 type MobileMenuProps = {
   menuItems?: MenuItemType[];
@@ -15,10 +16,6 @@ type MobileMenuProps = {
 
 export default function MobileMenu({ menuItems, pathname }: MobileMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  function connectWallet() {
-    toast.warning('Setup ConnectKit to enable wallet connection');
-  }
 
   return (
     <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
@@ -44,7 +41,7 @@ export default function MobileMenu({ menuItems, pathname }: MobileMenuProps) {
             </Link>
           ))}
           <div className="flex justify-center py-2">
-            <Button onClick={connectWallet}>Connect Wallet</Button>
+            <ConnectKitButton />
           </div>
         </div>
       </SheetContent>

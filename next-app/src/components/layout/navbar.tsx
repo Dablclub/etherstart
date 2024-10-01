@@ -6,6 +6,7 @@ import MobileMenu from './mobileMenu';
 import { usePathname } from 'next/navigation';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
+import { ConnectKitButton } from 'connectkit';
 
 export type MenuItemType = {
   displayText: string;
@@ -33,10 +34,6 @@ const MENU_ITEMS: MenuItemType[] = [
 
 export default function Navbar() {
   const pathname = usePathname();
-
-  function connectWallet() {
-    toast.warning('Setup ConnectKit to enable wallet connection');
-  }
 
   return (
     <header className="h-20 w-full bg-background">
@@ -73,7 +70,7 @@ export default function Navbar() {
           </nav>
         </div>
         <div className="hidden lg:flex lg:justify-end">
-          <Button onClick={connectWallet}>Connect Wallet</Button>
+          <ConnectKitButton />
         </div>
         <MobileMenu menuItems={MENU_ITEMS} pathname={pathname} />
       </div>

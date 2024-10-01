@@ -35,6 +35,14 @@ export function Account() {
     }
   }, [isMounted]);
 
+  if (!isMounted) {
+    return (
+      <div>
+        <p className="text-lg">Loading...</p>
+      </div>
+    );
+  }
+
   if (!isConnected) {
     return (
       <div>
@@ -58,20 +66,20 @@ export function Account() {
         </div>
       )}
       {address && isMounted && (
-        <>
+        <div className="flex flex-col items-center gap-y-2">
+          <p className="text-lg">Connected wallet address:</p>
           <p className="text-lg">{address}</p>
-        </>
+        </div>
       )}
       <div className="flex flex-col gap-y-2">
-        {accountBalance && (
-          <p className="text-xl">
-            Balance: {accountBalance.data?.formatted} ETH
-          </p>
+        {accountBalance && isMounted && (
+          <p className="text-xl">Balance: {accountBalance.data?.value} ETH</p>
         )}
         {chain && chainId && isMounted && (
-          <p className="text-lg">
-            {chain.name}, chainId: {chainId}
-          </p>
+          <>
+            <p className="text-lg">Chain: {chain.name}</p>
+            <p className="text-lg">Chain Id: {chainId}</p>
+          </>
         )}
       </div>
     </div>

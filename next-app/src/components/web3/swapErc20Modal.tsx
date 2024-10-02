@@ -22,6 +22,7 @@ import {
   numberToHex,
   parseUnits,
   size,
+  zeroAddress,
 } from 'viem';
 import qs from 'qs';
 
@@ -47,7 +48,6 @@ import {
   FEE_RECIPIENT,
   MAX_ALLOWANCE,
   POLYGON_TOKENS,
-  POLYGON_TOKENS_BY_ADDRESS,
   POLYGON_TOKENS_BY_SYMBOL,
   Token,
 } from '@/lib/constants';
@@ -69,12 +69,12 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
   const [quote, setQuote] = useState<QuoteResponse | undefined>();
   const [finalize, setFinalize] = useState(false);
   const [tradeDirection, setSwapDirection] = useState('sell');
-  const [error, setError] = useState([]);
-  const [buyTokenTax, setBuyTokenTax] = useState({
+  const [, setError] = useState([]);
+  const [, setBuyTokenTax] = useState({
     buyTaxBps: '0',
     sellTaxBps: '0',
   });
-  const [sellTokenTax, setSellTokenTax] = useState({
+  const [, setSellTokenTax] = useState({
     buyTaxBps: '0',
     sellTaxBps: '0',
   });
@@ -140,7 +140,6 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
     async function main() {
       const response = await fetch(`/api/price?${qs.stringify(params)}`);
       const data = await response.json();
-      console.log(data);
 
       if (data?.validationErrors?.length > 0) {
         // error for sellAmount too low
@@ -165,6 +164,7 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
   }, [
     sellTokenObject.address,
     buyTokenObject.address,
+    buyTokenObject.decimals,
     parsedSellAmount,
     parsedBuyAmount,
     chainId,
@@ -172,12 +172,10 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
     sellAmount,
     setPrice,
     userAddress,
-    FEE_RECIPIENT,
-    AFFILIATE_FEE,
   ]);
 
   // Hook for fetching balance information for specified token for a specific taker address
-  const { data, isError, isLoading } = useBalance({
+  const { data } = useBalance({
     address: userAddress,
     token: sellTokenObject.address,
   });
@@ -186,9 +184,6 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
     data && sellAmount
       ? parseUnits(sellAmount, sellTokenDecimals) > data.value
       : true;
-
-  // Helper function to format tax basis points to percentage
-  const formatTax = (taxBps: string) => (parseFloat(taxBps) / 100).toFixed(2);
 
   return (
     <Dialog>
@@ -332,25 +327,12 @@ function ApproveOrReviewButton({
   onClick: () => void;
   sellTokenAddress: Address;
   disabled?: boolean;
+  /* eslint-disable  @typescript-eslint/no-explicit-any */
   price: any;
 }) {
-  // If price.issues.allowance is null, show the Review Trade button
-  if (price?.issues.allowance === null) {
-    return (
-      <Button
-        disabled={disabled}
-        onClick={() => {
-          // fetch data, when finished, show quote view
-          onClick();
-        }}
-      >
-        {disabled ? 'Insufficient Balance' : 'Review Trade'}
-      </Button>
-    );
-  }
-
   // Determine the spender from price.issues.allowance
-  const spender = price?.issues.allowance.spender;
+  const spender = (price?.issues.allowance.spender ??
+    zeroAddress) as `0x${string}`;
 
   // 1. Read from erc20, check approval for the determined spender to spend sellToken
   const { data: allowance, refetch } = useReadContract({
@@ -359,7 +341,6 @@ function ApproveOrReviewButton({
     functionName: 'allowance',
     args: [userAddress, spender],
   });
-  console.log('checked spender approval');
 
   // 2. (only if no allowance): write to erc20, approve token allowance for the determined spender
   const { data } = useSimulateContract({
@@ -372,21 +353,20 @@ function ApproveOrReviewButton({
   // Define useWriteContract for the 'approve' operation
   const {
     data: writeContractResult,
-    writeContractAsync: writeContract,
+    writeContractAsync,
     error,
   } = useWriteContract();
 
   // useWaitForTransactionReceipt to wait for the approval transaction to complete
-  const { data: approvalReceiptData, isLoading: isApproving } =
-    useWaitForTransactionReceipt({
-      hash: writeContractResult,
-    });
+  const { isLoading: isApproving } = useWaitForTransactionReceipt({
+    hash: writeContractResult,
+  });
 
   async function onClickHandler(event: React.MouseEvent<HTMLElement>) {
     event.preventDefault();
 
     try {
-      await writeContract({
+      await writeContractAsync({
         abi: erc20Abi,
         address: sellTokenAddress,
         functionName: 'approve',
@@ -405,11 +385,26 @@ function ApproveOrReviewButton({
     }
   }, [data, refetch]);
 
+  // If price.issues.allowance is null, show the Review Trade button
+  if (price?.issues.allowance === null) {
+    return (
+      <Button
+        disabled={disabled}
+        onClick={() => {
+          // fetch data, when finished, show quote view
+          onClick();
+        }}
+      >
+        {disabled ? 'Insufficient Balance' : 'Review Trade'}
+      </Button>
+    );
+  }
+
   if (error) {
     return <div>Something went wrong: {error.message}</div>;
   }
 
-  if (allowance === 0n) {
+  if (allowance === 0n && !disabled) {
     return (
       <>
         <Button onClick={onClickHandler}>
@@ -445,22 +440,6 @@ function ConfirmSwapButton({
   setQuote: (price: any) => void;
   setFinalize: (value: boolean) => void;
 }) {
-  console.log('price', price);
-
-  const sellTokenInfo = (chainId: number) => {
-    if (chainId === 137) {
-      return POLYGON_TOKENS_BY_ADDRESS[price.sellToken.toLowerCase()];
-    }
-    return POLYGON_TOKENS_BY_ADDRESS[price.sellToken.toLowerCase()];
-  };
-
-  const buyTokenInfo = (chainId: number) => {
-    if (chainId === 137) {
-      return POLYGON_TOKENS_BY_ADDRESS[price.buyToken.toLowerCase()];
-    }
-    return POLYGON_TOKENS_BY_ADDRESS[price.buyToken.toLowerCase()];
-  };
-
   const { signTypedDataAsync } = useSignTypedData();
   const { data: walletClient } = useWalletClient();
 
@@ -491,16 +470,9 @@ function ConfirmSwapButton({
     price.sellAmount,
     userAddress,
     setQuote,
-    FEE_RECIPIENT,
-    AFFILIATE_FEE,
   ]);
 
-  const {
-    data: hash,
-    isPending,
-    error,
-    sendTransaction,
-  } = useSendTransaction();
+  const { data: hash, isPending, sendTransaction } = useSendTransaction();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({
@@ -510,11 +482,6 @@ function ConfirmSwapButton({
   if (!quote) {
     return <div>Getting best quote...</div>;
   }
-
-  console.log('quote', quote);
-
-  // Helper function to format tax basis points to percentage
-  const formatTax = (taxBps: string) => (parseFloat(taxBps) / 100).toFixed(2);
 
   return (
     <div className="flex flex-col gap-y-2">
@@ -570,7 +537,7 @@ function ConfirmSwapButton({
 
           // (3) Submit the transaction with Permit2 signature
 
-          sendTransaction &&
+          if (sendTransaction) {
             sendTransaction({
               account: walletClient?.account.address,
               gas: !!quote?.transaction.gas
@@ -583,6 +550,7 @@ function ConfirmSwapButton({
                 : undefined, // value is used for native tokens
               chainId: 137,
             });
+          }
         }}
       >
         {isPending ? 'Confirming...' : 'Place Order'}

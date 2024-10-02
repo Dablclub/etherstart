@@ -148,6 +148,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'ipfs.io',
       },
+      {
+        protocol: 'https',
+        hostname: 'euc.li',
+      },
     ],
   },
 };

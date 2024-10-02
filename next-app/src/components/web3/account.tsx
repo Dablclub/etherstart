@@ -84,16 +84,27 @@ export function Account() {
       </div>
       <div className="flex justify-center gap-x-3 px-4">
         <div className="w-1/3">
-          <SendEthModal />
+          {chainId === 2442 ? (
+            <SendEthModal />
+          ) : (
+            <SwitchNetworkModal buttonText="Send ETH" requiredChainId={2442} />
+          )}
         </div>
         <div className="w-1/3">
-          <SendErc20Modal userAddress={address} />
+          {chainId === 2442 ? (
+            <SendErc20Modal userAddress={address} />
+          ) : (
+            <SwitchNetworkModal
+              buttonText="Send ERC20"
+              requiredChainId={2442}
+            />
+          )}
         </div>
         <div className="w-1/3">
           {chainId === 137 ? (
             <SwapErc20Modal userAddress={address} />
           ) : (
-            <SwitchNetworkModal />
+            <SwitchNetworkModal buttonText="Swap ERC20" requiredChainId={137} />
           )}
         </div>
       </div>

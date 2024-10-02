@@ -116,7 +116,7 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
 }
 ```
 
-3. We will need to create a custom button called `ApproveOrReviewButton` to allow users to approve the token allowance, if it hasn't been approved already.
+We will create a custom button called `ApproveOrReviewButton` to allow users to approve the token allowance, if it hasn't been approved already.
 
 ```
 // place this component below the SwapErc20Modal component (in the same file)

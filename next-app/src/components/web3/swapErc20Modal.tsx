@@ -1,16 +1,28 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
-import { PriceResponse } from '../../types/index';
+import { PriceResponse, QuoteResponse } from '../../types/index';
 import {
   useBalance,
   useChainId,
   useReadContract,
+  useSendTransaction,
+  useSignTypedData,
   useSimulateContract,
   useWaitForTransactionReceipt,
+  useWalletClient,
   useWriteContract,
 } from 'wagmi';
-import { Address, erc20Abi, formatUnits, parseUnits } from 'viem';
+import {
+  Address,
+  concat,
+  erc20Abi,
+  formatUnits,
+  Hex,
+  numberToHex,
+  parseUnits,
+  size,
+} from 'viem';
 import qs from 'qs';
 
 import {
@@ -35,10 +47,13 @@ import {
   FEE_RECIPIENT,
   MAX_ALLOWANCE,
   POLYGON_TOKENS,
+  POLYGON_TOKENS_BY_ADDRESS,
   POLYGON_TOKENS_BY_SYMBOL,
   Token,
 } from '@/lib/constants';
 import { toast } from 'sonner';
+import Link from 'next/link';
+import { ExternalLinkIcon } from 'lucide-react';
 
 type SendErc20ModalProps = {
   userAddress: `0x${string}` | undefined;
@@ -51,6 +66,7 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
   const [buyToken, setBuyToken] = useState('usdc');
   const [buyAmount, setBuyAmount] = useState('');
   const [price, setPrice] = useState<PriceResponse | undefined>();
+  const [quote, setQuote] = useState<QuoteResponse | undefined>();
   const [finalize, setFinalize] = useState(false);
   const [tradeDirection, setSwapDirection] = useState('sell');
   const [error, setError] = useState([]);
@@ -278,13 +294,23 @@ export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
                   />
                 </div>
               </div>
-              <ApproveOrReviewButton
-                sellTokenAddress={POLYGON_TOKENS_BY_SYMBOL[sellToken].address}
-                userAddress={userAddress as `0x${string}`}
-                onClick={() => setFinalize(true)}
-                disabled={inSufficientBalance}
-                price={price}
-              />
+              {finalize && price ? (
+                <ConfirmSwapButton
+                  userAddress={userAddress as `0x${string}`}
+                  price={price}
+                  quote={quote}
+                  setQuote={setQuote}
+                  setFinalize={setFinalize}
+                />
+              ) : (
+                <ApproveOrReviewButton
+                  sellTokenAddress={POLYGON_TOKENS_BY_SYMBOL[sellToken].address}
+                  userAddress={userAddress as `0x${string}`}
+                  onClick={() => setFinalize(true)}
+                  disabled={inSufficientBalance}
+                  price={price}
+                />
+              )}
             </form>
           </div>
         ) : (
@@ -403,5 +429,178 @@ function ApproveOrReviewButton({
     >
       {disabled ? 'Insufficient Balance' : 'Review Trade'}
     </Button>
+  );
+}
+
+function ConfirmSwapButton({
+  userAddress,
+  price,
+  quote,
+  setQuote,
+  setFinalize,
+}: {
+  userAddress: Address | undefined;
+  price: PriceResponse;
+  quote: QuoteResponse | undefined;
+  setQuote: (price: any) => void;
+  setFinalize: (value: boolean) => void;
+}) {
+  console.log('price', price);
+
+  const sellTokenInfo = (chainId: number) => {
+    if (chainId === 137) {
+      return POLYGON_TOKENS_BY_ADDRESS[price.sellToken.toLowerCase()];
+    }
+    return POLYGON_TOKENS_BY_ADDRESS[price.sellToken.toLowerCase()];
+  };
+
+  const buyTokenInfo = (chainId: number) => {
+    if (chainId === 137) {
+      return POLYGON_TOKENS_BY_ADDRESS[price.buyToken.toLowerCase()];
+    }
+    return POLYGON_TOKENS_BY_ADDRESS[price.buyToken.toLowerCase()];
+  };
+
+  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useWalletClient();
+
+  // Fetch quote data
+  useEffect(() => {
+    const params = {
+      chainId: 137,
+      sellToken: price.sellToken,
+      buyToken: price.buyToken,
+      sellAmount: price.sellAmount,
+      taker: userAddress,
+      swapFeeRecipient: FEE_RECIPIENT,
+      swapFeeBps: AFFILIATE_FEE,
+      swapFeeToken: price.buyToken,
+      tradeSurplusRecipient: FEE_RECIPIENT,
+    };
+
+    async function main() {
+      const response = await fetch(`/api/quote?${qs.stringify(params)}`);
+      const data = await response.json();
+      console.log(data);
+      setQuote(data);
+    }
+    main();
+  }, [
+    price.sellToken,
+    price.buyToken,
+    price.sellAmount,
+    userAddress,
+    setQuote,
+    FEE_RECIPIENT,
+    AFFILIATE_FEE,
+  ]);
+
+  const {
+    data: hash,
+    isPending,
+    error,
+    sendTransaction,
+  } = useSendTransaction();
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({
+      hash,
+    });
+
+  if (!quote) {
+    return <div>Getting best quote...</div>;
+  }
+
+  console.log('quote', quote);
+
+  // Helper function to format tax basis points to percentage
+  const formatTax = (taxBps: string) => (parseFloat(taxBps) / 100).toFixed(2);
+
+  return (
+    <div className="flex flex-col gap-y-2">
+      <Button
+        variant="ghost"
+        onClick={(event) => {
+          event.preventDefault();
+          setFinalize(false);
+        }}
+      >
+        Modify swap
+      </Button>
+      <Button
+        disabled={isPending}
+        onClick={async (event) => {
+          event.preventDefault();
+
+          console.log('submitting quote to blockchain');
+          console.log('to', quote.transaction.to);
+          console.log('value', quote.transaction.value);
+
+          // On click, (1) Sign the Permit2 EIP-712 message returned from quote
+          if (quote.permit2?.eip712) {
+            let signature: Hex | undefined;
+            try {
+              signature = await signTypedDataAsync(quote.permit2.eip712);
+              console.log('Signed permit2 message from quote response');
+            } catch (error) {
+              console.error('Error signing permit2 coupon:', error);
+            }
+
+            // (2) Append signature length and signature data to calldata
+
+            if (signature && quote?.transaction?.data) {
+              const signatureLengthInHex = numberToHex(size(signature), {
+                signed: false,
+                size: 32,
+              });
+
+              const transactionData = quote.transaction.data as Hex;
+              const sigLengthHex = signatureLengthInHex as Hex;
+              const sig = signature as Hex;
+
+              quote.transaction.data = concat([
+                transactionData,
+                sigLengthHex,
+                sig,
+              ]);
+            } else {
+              throw new Error('Failed to obtain signature or transaction data');
+            }
+          }
+
+          // (3) Submit the transaction with Permit2 signature
+
+          sendTransaction &&
+            sendTransaction({
+              account: walletClient?.account.address,
+              gas: !!quote?.transaction.gas
+                ? BigInt(quote?.transaction.gas)
+                : undefined,
+              to: quote?.transaction.to,
+              data: quote.transaction.data, // submit
+              value: quote?.transaction.value
+                ? BigInt(quote.transaction.value)
+                : undefined, // value is used for native tokens
+              chainId: 137,
+            });
+        }}
+      >
+        {isPending ? 'Confirming...' : 'Place Order'}
+      </Button>
+      {hash && (
+        <div className="pt-4 flex flex-col items-center">
+          <Link
+            className="hover:text-accent flex items-center gap-x-1.5"
+            href={`https://polygonscan.com/tx/${hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View tx on explorer <ExternalLinkIcon className="h4 w-4" />
+          </Link>
+          {isConfirming && <div>Waiting for confirmation...</div>}
+          {isConfirmed && <div>Transaction confirmed.</div>}
+        </div>
+      )}
+    </div>
   );
 }

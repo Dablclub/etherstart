@@ -1,53 +1,98 @@
-import { Address } from 'viem';
+import { Address, type Hex } from 'viem';
+import { TypedData, TypedDataDomain } from 'abitype';
 
-// https://docs.0x.org/0x-api-swap/api-references/get-swap-v1-price#response
+// This interface is subject to change as the API V2 endpoints aren't finalized.
 export interface PriceResponse {
-  chainId: number;
-  price: string;
-  estimatedPriceImpact: string;
-  value: string;
-  gasPrice: bigint;
-  grossBuyAmount: string;
-  gas: bigint;
-  estimatedGas: string;
-  protocolFee: string;
-  minimumProtocolFee: string;
-  buyTokenAddress: string;
-  buyAmount: string;
-  sellTokenAddress: string;
+  sellToken: string;
+  buyToken: string;
   sellAmount: string;
-  sources: any[];
-  allowanceTarget: string;
-  sellTokenToEthRate: string;
-  buyTokenToEthRate: string;
-  expectedSlippage: string | null;
+  buyAmount: string;
+  grossSellAmount: string;
+  grossBuyAmount: string;
+  allowanceTarget: Address;
+  route: [];
+  fees: {
+    integratorFee: {
+      amount: string;
+      token: string;
+      type: 'volume' | 'gas';
+    } | null;
+    zeroExFee: {
+      billingType: 'on-chain' | 'off-chain';
+      feeAmount: string;
+      feeToken: Address;
+      feeType: 'volume' | 'gas';
+    };
+    gasFee: null;
+  } | null;
+  gas: string;
+  gasPrice: string;
+  auxiliaryChainData?: {
+    l1GasEstimate?: number;
+  };
 }
 
-// https://docs.0x.org/0x-api-swap/api-references/get-swap-v1-quote#response
+// This interface is subject to change as the API V2 endpoints aren't finalized.
 export interface QuoteResponse {
-  chainId: number;
-  price: string;
-  guaranteedPrice: string;
-  estimatedPriceImpact: string;
-  to: Address;
-  from: string;
-  data: Address;
-  value: bigint;
-  gas: bigint;
-  estimatedGas: string;
-  gasPrice: bigint;
-  grossBuyAmount: string;
-  protocolFee: string;
-  minimumProtocolFee: string;
-  buyTokenAddress: string;
-  sellTokenAddress: string;
-  buyAmount: string;
+  sellToken: Address;
+  buyToken: Address;
   sellAmount: string;
-  sources: any[];
-  orders: any[];
-  allowanceTarget: string;
-  decodedUniqueId: string;
-  sellTokenToEthRate: string;
-  buyTokenToEthRate: string;
-  expectedSlippage: string | null;
+  buyAmount: string;
+  grossSellAmount: string;
+  grossBuyAmount: string;
+  gasPrice: string;
+  allowanceTarget: Address;
+  route: [];
+  fees: {
+    integratorFee: {
+      amount: string;
+      token: string;
+      type: 'volume' | 'gas';
+    } | null;
+    zeroExFee: {
+      billingType: 'on-chain' | 'off-chain';
+      feeAmount: string;
+      feeToken: Address;
+      feeType: 'volume' | 'gas';
+    };
+    gasFee: null;
+  } | null;
+  auxiliaryChainData: {};
+  to: Address;
+  data: Hex;
+  value: string;
+  gas: string;
+  permit2: {
+    type: 'Permit2';
+    hash: Hex;
+    eip712: EIP712TypedData;
+  };
+  transaction: V2QuoteTransaction;
+  tokenMetadata: {
+    buyToken: {
+      buyTaxBps: string | null;
+      sellTaxBps: string | null;
+    };
+    sellToken: {
+      buyTaxBps: string | null;
+      sellTaxBps: string | null;
+    };
+  };
+}
+
+export interface V2QuoteTransaction {
+  data: Hex;
+  gas: string | null;
+  gasPrice: string;
+  to: Address;
+  value: string;
+}
+
+export interface EIP712TypedData {
+  types: TypedData;
+  domain: TypedDataDomain;
+  message: {
+    [key: string]: unknown;
+  };
+  primaryType: string;
 }

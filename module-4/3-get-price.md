@@ -417,6 +417,8 @@ We can achieve this by creating a `SwitchChainModal` component, which will be sh
 `/src/components/web3/switchChainModal.tsx`
 
 ```
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useSwitchChain } from 'wagmi';
 
@@ -431,12 +433,26 @@ import {
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 
-export default function SwitchChainModal() {
+export default function SwitchChainModal({
+  buttonText,
+  requiredChainId,
+}: {
+  buttonText: string;
+  requiredChainId: number;
+}) {
   const [isMounted, setIsMounted] = useState(false);
-  const { chains, switchChain } = useSwitchChain();
-  console.log(chains);
-  const [polygonChain] = chains.filter((chain) => chain.id === 137);
-  console.log(polygonChain);
+  const { chains, switchChain } = useSwitchChain({
+    mutation: {
+      onSuccess(data) {
+        console.log(data);
+        toast.success(`Changed to ${data.name} chain`);
+        return null;
+      },
+    },
+  });
+  const [selectedChain] = chains.filter(
+    (chain) => chain.id === requiredChainId
+  );
 
   useEffect(() => {
     if (!isMounted) {
@@ -445,25 +461,24 @@ export default function SwitchChainModal() {
   }, [isMounted]);
 
   function handleSwitchChain() {
-    switchChain({ chainId: polygonChain.id });
-    toast.success('Changed to Polygon PoS (chain id: 137)');
+    switchChain({ chainId: selectedChain.id });
+    toast.info(`Accept change to ${selectedChain.name} chain`);
   }
 
   return (
     <Dialog>
       <DialogTrigger asChild className="w-full">
-        <Button>Swap ERC20</Button>
+        <Button>{buttonText}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="text-center">Switch Chain</DialogTitle>
           <DialogDescription>
-            Swapping is only enabled for Polygon PoS. You need to switch chain.
+            {`This action is only enabled for ${selectedChain.name}. You need to switch chain`}
           </DialogDescription>
         </DialogHeader>
         <Button onClick={handleSwitchChain}>
-          Switch to Polygon PoS
-          {/* {polygonChain?.name} */}
+          {`Switch to ${selectedChain.name}`}
         </Button>
       </DialogContent>
     </Dialog>
@@ -490,17 +505,27 @@ And on our `Account` component, we just do a conditional render
       </div>
       <div className="flex justify-center gap-x-3 px-4">
         <div className="w-1/3">
-          <SendEthModal />
+          {chainId === 2442 ? (
+            <SendEthModal />
+          ) : (
+            <SwitchNetworkModal buttonText="Send ETH" requiredChainId={2442} />
+          )}
         </div>
         <div className="w-1/3">
-          <SendErc20Modal userAddress={address} />
+          {chainId === 2442 ? (
+            <SendErc20Modal userAddress={address} />
+          ) : (
+            <SwitchNetworkModal
+              buttonText="Send ERC20"
+              requiredChainId={2442}
+            />
+          )}
         </div>
-        // HERE is the change!!!
         <div className="w-1/3">
           {chainId === 137 ? (
             <SwapErc20Modal userAddress={address} />
           ) : (
-            <SwitchNetworkModal />
+            <SwitchNetworkModal buttonText="Swap ERC20" requiredChainId={137} />
           )}
         </div>
       </div>

@@ -12,7 +12,7 @@ This allowance approval will show up in the user's wallet for them to sign. Here
 
 ![Browser extension wallet asked for approval transaction confirmation](https://github.com/jlin27/token-swap-dapp-course/assets/8042156/9743b971-a8bc-4269-8b11-77ee2c64b609)
 
-The logic to check if the user has approved a token allowance the selected sell token is set here:
+The logic to check if the user has approved a token allowance the selected sell token is set [here](https://github.com/dablclub/etherstart/blob/main/next-app/src/components/swapErc20Modal.tsx):
 
 1. First, we need to check if the spender (Permit2) has an allowance already. We can use wagmi's useReadContract() hook to read from the sellToken's "allowance" function.
 2. If there is no allowance, then we will write an approval to the sellToken's smart contract using wagmi's useSimulateContract() and useWriteContract().
@@ -57,11 +57,23 @@ import {
   useBalance,
   useChainId,
   useReadContract,
+  useSendTransaction,
+  useSignTypedData,
   useSimulateContract,
   useWaitForTransactionReceipt,
+  useWalletClient,
   useWriteContract,
 } from 'wagmi';
-import { Address, erc20Abi, formatUnits, parseUnits } from 'viem';
+import {
+  Address,
+  concat,
+  erc20Abi,
+  formatUnits,
+  Hex,
+  numberToHex,
+  parseUnits,
+  size,
+} from 'viem';
 
 // update constants import
 import {
@@ -131,8 +143,64 @@ function ApproveOrReviewButton({
   onClick: () => void;
   sellTokenAddress: Address;
   disabled?: boolean;
+  /* eslint-disable  @typescript-eslint/no-explicit-any */
   price: any;
 }) {
+  // Determine the spender from price.issues.allowance
+  const spender = (price?.issues.allowance.spender ??
+    zeroAddress) as `0x${string}`;
+
+  // 1. Read from erc20, check approval for the determined spender to spend sellToken
+  const { data: allowance, refetch } = useReadContract({
+    address: sellTokenAddress,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: [userAddress, spender],
+  });
+
+  // 2. (only if no allowance): write to erc20, approve token allowance for the determined spender
+  const { data } = useSimulateContract({
+    address: sellTokenAddress,
+    abi: erc20Abi,
+    functionName: 'approve',
+    args: [spender, MAX_ALLOWANCE],
+  });
+
+  // Define useWriteContract for the 'approve' operation
+  const {
+    data: writeContractResult,
+    writeContractAsync,
+    error,
+  } = useWriteContract();
+
+  // useWaitForTransactionReceipt to wait for the approval transaction to complete
+  const { isLoading: isApproving } = useWaitForTransactionReceipt({
+    hash: writeContractResult,
+  });
+
+  async function onClickHandler(event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+
+    try {
+      await writeContractAsync({
+        abi: erc20Abi,
+        address: sellTokenAddress,
+        functionName: 'approve',
+        args: [spender, MAX_ALLOWANCE],
+      });
+      refetch();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  // Call `refetch` when the transaction succeeds
+  useEffect(() => {
+    if (data) {
+      refetch();
+    }
+  }, [data, refetch]);
+
   // If price.issues.allowance is null, show the Review Trade button
   if (price?.issues.allowance === null) {
     return (
@@ -148,70 +216,16 @@ function ApproveOrReviewButton({
     );
   }
 
-  // Determine the spender from price.issues.allowance
-  const spender = price?.issues.allowance.spender;
-
-  // 1. Read from erc20, check approval for the determined spender to spend sellToken
-  const { data: allowance, refetch } = useReadContract({
-    address: sellTokenAddress,
-    abi: erc20Abi,
-    functionName: 'allowance',
-    args: [userAddress, spender],
-  });
-  console.log('checked spender approval');
-
-  // 2. (only if no allowance): write to erc20, approve token allowance for the determined spender
-  const { data } = useSimulateContract({
-    address: sellTokenAddress,
-    abi: erc20Abi,
-    functionName: 'approve',
-    args: [spender, MAX_ALLOWANCE],
-  });
-
-  // Define useWriteContract for the 'approve' operation
-  const {
-    data: writeContractResult,
-    writeContractAsync: writeContract,
-    error,
-  } = useWriteContract();
-
-  // useWaitForTransactionReceipt to wait for the approval transaction to complete
-  const { data: approvalReceiptData, isLoading: isApproving } =
-    useWaitForTransactionReceipt({
-      hash: writeContractResult,
-    });
-
-  // Call `refetch` when the transaction succeeds
-  useEffect(() => {
-    if (data) {
-      refetch();
-    }
-  }, [data, refetch]);
-
   if (error) {
     return <div>Something went wrong: {error.message}</div>;
   }
 
-  if (allowance === 0n) {
+  if (allowance === 0n && !disabled) {
     return (
       <>
-        <button
-          type="button"
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full"
-          onClick={async () => {
-            await writeContract({
-              abi: erc20Abi,
-              address: sellTokenAddress,
-              functionName: 'approve',
-              args: [spender, MAX_ALLOWANCE],
-            });
-            console.log('approving spender to spend sell token');
-
-            refetch();
-          }}
-        >
+        <Button onClick={onClickHandler}>
           {isApproving ? 'Approving…' : 'Approve'}
-        </button>
+        </Button>
       </>
     );
   }
@@ -258,7 +272,7 @@ This is how you can use this hook for any smart contract, as long as you have th
 
 **Reminder: don't trust, verify**
 
-4. If there is no allowance, then we will write an approval to the sellToken's smart contract using wagmi's [useWriteContract](https://wagmi.sh/react/api/hooks/useWriteContract#usewritecontract) hook. For this example, we will set the allowance to a the sellToken amount (just the amount needed) to prevent putting the wallet at too much risk.
+If there is no allowance, then we will write an approval to the sellToken's smart contract using wagmi's [useWriteContract](https://wagmi.sh/react/api/hooks/useWriteContract#usewritecontract) hook. For this example, we will set the allowance to a the sellToken amount (just the amount needed) to prevent putting the wallet at too much risk. Take note, we are using the writeContractAsync method.
 
 The definition for the hook call is inside the `onClickHandler` function.
 
@@ -266,32 +280,25 @@ The definition for the hook call is inside the `onClickHandler` function.
 function ApproveOrReviewButton({
     ...
 }) {
-    const {
-      data: approvalTxHash,
-      error: errorWriteContract,
-      writeContractAsync,
-    } = useWriteContract();
+    // ...previouse code
+    // Define useWriteContract for the 'approve' operation
+  const {
+    data: writeContractResult,
+    writeContractAsync,
+    error,
+  } = useWriteContract();
 
-    const { isLoading: isConfirming, isSuccess: isTxConfirmed } =
-      useWaitForTransactionReceipt({
-        hash: approvalTxHash,
-      });
-
-    useEffect(() => {
-      if (isTxConfirmed) {
-        refetchAllowance();
-      }
-    }, [isTxConfirmed, refetchAllowance, allowance]);
-
-    if (errorWriteContract) {
-      return <div>Something went wrong: {errorWriteContract.message}</div>;
-    }
+  // useWaitForTransactionReceipt to wait for the approval transaction to complete
+  const { data: approvalReceiptData, isLoading: isApproving } =
+    useWaitForTransactionReceipt({
+      hash: writeContractResult,
+    });
 
     async function onClickHandler(event: React.MouseEvent<HTMLElement>) {
       event.preventDefault();
 
       try {
-        await writeContract({
+        await writeContractAsync({
           abi: erc20Abi,
           address: sellTokenAddress,
           functionName: 'approve',
@@ -303,39 +310,7 @@ function ApproveOrReviewButton({
       }
     }
 
-    // Call `refetch` when the transaction succeeds
-    useEffect(() => {
-      if (data) {
-        refetch();
-      }
-    }, [data, refetch]);
-
-    if (error) {
-      return <div>Something went wrong: {error.message}</div>;
-    }
-
-    // update button depending if needs approval or approval pending
-    if (allowance === 0n) {
-    return (
-      <>
-        <Button onClick={onClickHandler}>
-          {isApproving ? 'Approving…' : 'Approve'}
-        </Button>
-      </>
-    );
-  }
-
-  return (
-    <Button
-      disabled={disabled}
-      onClick={() => {
-        // fetch data, when finished, show quote view
-        onClick();
-      }}
-    >
-      {disabled ? 'Insufficient Balance' : 'Review Trade'}
-    </Button>
-  );
+    // ...remaining code
 }
 ```
 

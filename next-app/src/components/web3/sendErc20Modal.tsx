@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   useReadContract,
   useWriteContract,
@@ -102,9 +102,9 @@ export default function SendErc20Modal({ userAddress }: SendErc20ModalProps) {
     }
   }
 
-  async function refetchBalance() {
+  const refetchBalance = useCallback(async () => {
     await refetchErc20Balance();
-  }
+  }, []);
 
   useEffect(() => {
     if (!isMounted) {
@@ -117,7 +117,7 @@ export default function SendErc20Modal({ userAddress }: SendErc20ModalProps) {
       refetchBalance();
       toast.success(`Sent ${tokenAmount} BOOTCAMP`);
     }
-  }, [isConfirmed]);
+  }, [isConfirmed, refetchBalance, tokenAmount]);
 
   return (
     <Dialog>

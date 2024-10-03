@@ -55,11 +55,11 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { ExternalLinkIcon } from 'lucide-react';
 
-type SendErc20ModalProps = {
+type SwapErc20ModalProps = {
   userAddress: `0x${string}` | undefined;
 };
 
-export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
+export default function SwapErc20Modal({ userAddress }: SwapErc20ModalProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [sellToken, setSellToken] = useState('wmatic');
   const [sellAmount, setSellAmount] = useState('');
@@ -331,7 +331,7 @@ function ApproveOrReviewButton({
   price: any;
 }) {
   // Determine the spender from price.issues.allowance
-  const spender = (price?.issues.allowance.spender ??
+  const spender = (price?.issues?.allowance?.spender ??
     zeroAddress) as `0x${string}`;
 
   // 1. Read from erc20, check approval for the determined spender to spend sellToken
@@ -372,7 +372,8 @@ function ApproveOrReviewButton({
         functionName: 'approve',
         args: [spender, MAX_ALLOWANCE],
       });
-      refetch();
+
+      await refetch();
     } catch (error) {
       console.error(error);
     }
@@ -385,7 +386,7 @@ function ApproveOrReviewButton({
     }
   }, [data, refetch]);
 
-  // If price.issues.allowance is null, show the Review Trade button
+  // If price.issues.allowance is null, show the Review Swap button
   if (price?.issues.allowance === null) {
     return (
       <Button
@@ -395,7 +396,7 @@ function ApproveOrReviewButton({
           onClick();
         }}
       >
-        {disabled ? 'Insufficient Balance' : 'Review Trade'}
+        {disabled ? 'Insufficient Balance' : 'Review Swap'}
       </Button>
     );
   }
@@ -422,7 +423,7 @@ function ApproveOrReviewButton({
         onClick();
       }}
     >
-      {disabled ? 'Insufficient Balance' : 'Review Trade'}
+      {disabled ? 'Insufficient Balance' : 'Review Swap'}
     </Button>
   );
 }

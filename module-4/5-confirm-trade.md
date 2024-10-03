@@ -17,7 +17,7 @@ The UI for the `SwapErc20Modal` should be as follows:
 - Displays the **sell** and **buy Amounts** that the user pays and receives, respectively
   - The UI displays the sell and buyAmounts returned by the `/quote` endpoint. These are formatted based off of the decimal values from the token list. It also shows the token images retrieved from our token list.
 - From here, the user can **“Place Order”** which creates, signs, and sends a new transaction to the network.
-- The modal should handle the logic to render either the `ApproveOrReviewButton` or the `ConfirmSwapButton`
+- The UI should handle the logic to render either the `ApproveOrReviewButton` or the `ConfirmSwapButton`
 
 ## Code
 
@@ -34,282 +34,360 @@ Create a new `ConfirmSwapButton` component that will receive the quote data, obt
 We need a couple of additional imports too.
 
 ```
-// previous imports
-import Link from 'next/link';
-import { ExternalLinkIcon } from 'lucide-react';
+// previous components (SwapErc20Modal, ApproveOrReviewButton)
+function ConfirmSwapButton({
+  userAddress,
+  price,
+  quote,
+  setQuote,
+  setFinalize,
+}: {
+  userAddress: Address | undefined;
+  price: PriceResponse;
+  quote: QuoteResponse | undefined;
+  setQuote: (price: any) => void;
+  setFinalize: (value: boolean) => void;
+}) {
+  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useWalletClient();
 
-export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
-  // previous logic
-  ...
+  // Fetch quote data
+  useEffect(() => {
+    const params = {
+      chainId: 137,
+      sellToken: price.sellToken,
+      buyToken: price.buyToken,
+      sellAmount: price.sellAmount,
+      taker: userAddress,
+      swapFeeRecipient: FEE_RECIPIENT,
+      swapFeeBps: AFFILIATE_FEE,
+      swapFeeToken: price.buyToken,
+      tradeSurplusRecipient: FEE_RECIPIENT,
+    };
 
-  function ApproveOrReviewButton({
-    ...
-  }) {
-    ...
-    return(
-      ...
-    )
-  }
-
-  function ConfirmSwapButton({
-    quote,
-  }: {
-    quote: QuoteResponse | undefined;
-    setFinalize: (value: boolean) => void;
-  }) {
-
-    const {
-      data: swapTxHash,
-      isPending,
-      sendTransaction,
-    } = useSendTransaction();
-
-    const { isLoading: isConfirming, isSuccess: isConfirmed } =
-      useWaitForTransactionReceipt({
-        hash: swapTxHash,
-      });
-
-    if (!quote) {
-      return <div>Getting best quote...</div>;
+    async function main() {
+      const response = await fetch(`/api/quote?${qs.stringify(params)}`);
+      const data = await response.json();
+      console.log(data);
+      setQuote(data);
     }
+    main();
+  }, [
+    price.sellToken,
+    price.buyToken,
+    price.sellAmount,
+    userAddress,
+    setQuote,
+  ]);
 
-    return (
-      <div className="flex flex-col gap-y-2">
-        <Button
-          variant="ghost"
-          onClick={(event) => {
-            event.preventDefault();
-            setFinalize(false);
-          }}
-        >
-          Modify swap
-        </Button>
-        <Button
-          disabled={isPending}
-          onClick={(event) => {
-            event.preventDefault();
+  const { data: hash, isPending, sendTransaction } = useSendTransaction();
 
-            sendTransaction &&
-              sendTransaction({
-                gas: quote?.gas,
-                to: quote?.to,
-                value: quote?.value, // only used for native tokens
-                data: quote?.data,
-                gasPrice: quote?.gasPrice,
-              });
-          }}
-        >
-          {isPending ? 'Confirming...' : 'Place Order'}
-        </Button>
-        {swapTxHash && (
-          <div className="pt-4 flex flex-col items-center">
-            <Link
-              className="hover:text-accent flex items-center gap-x-1.5"
-              href={`https://polygonscan.com/tx/${swapTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View tx on explorer <ExternalLinkIcon className="h4 w-4" />
-            </Link>
-            {isConfirming && <div>Waiting for confirmation...</div>}
-            {isConfirmed && <div>Transaction confirmed.</div>}
-          </div>
-        )}
-      </div>
-    );
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({
+      hash,
+    });
+
+  if (!quote) {
+    return <div>Getting best quote...</div>;
   }
+
+  return (
+    <div className="flex flex-col gap-y-2">
+      <Button
+        variant="ghost"
+        onClick={(event) => {
+          event.preventDefault();
+          setFinalize(false);
+        }}
+      >
+        Modify swap
+      </Button>
+      <Button
+        disabled={isPending}
+        onClick={async (event) => {
+          event.preventDefault();
+
+          console.log('submitting quote to blockchain');
+          console.log('to', quote.transaction.to);
+          console.log('value', quote.transaction.value);
+
+          // On click, (1) Sign the Permit2 EIP-712 message returned from quote
+          if (quote.permit2?.eip712) {
+            let signature: Hex | undefined;
+            try {
+              signature = await signTypedDataAsync(quote.permit2.eip712);
+              console.log('Signed permit2 message from quote response');
+            } catch (error) {
+              console.error('Error signing permit2 coupon:', error);
+            }
+
+            // (2) Append signature length and signature data to calldata
+
+            if (signature && quote?.transaction?.data) {
+              const signatureLengthInHex = numberToHex(size(signature), {
+                signed: false,
+                size: 32,
+              });
+
+              const transactionData = quote.transaction.data as Hex;
+              const sigLengthHex = signatureLengthInHex as Hex;
+              const sig = signature as Hex;
+
+              quote.transaction.data = concat([
+                transactionData,
+                sigLengthHex,
+                sig,
+              ]);
+            } else {
+              throw new Error('Failed to obtain signature or transaction data');
+            }
+          }
+
+          // (3) Submit the transaction with Permit2 signature
+
+          if (sendTransaction) {
+            sendTransaction({
+              account: walletClient?.account.address,
+              gas: !!quote?.transaction.gas
+                ? BigInt(quote?.transaction.gas)
+                : undefined,
+              to: quote?.transaction.to,
+              data: quote.transaction.data, // submit
+              value: quote?.transaction.value
+                ? BigInt(quote.transaction.value)
+                : undefined, // value is used for native tokens
+              chainId: 137,
+            });
+          }
+        }}
+      >
+        {isPending ? 'Confirming...' : 'Place Order'}
+      </Button>
+      {hash && (
+        <div className="pt-4 flex flex-col items-center">
+          <Link
+            className="hover:text-accent flex items-center gap-x-1.5"
+            href={`https://polygonscan.com/tx/${hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View tx on explorer <ExternalLinkIcon className="h4 w-4" />
+          </Link>
+          {isConfirming && <div>Waiting for confirmation...</div>}
+          {isConfirmed && <div>Transaction confirmed.</div>}
+        </div>
+      )}
+    </div>
+  );
 }
 ```
 
 Next, we need to wire up this new `quote` component and add logic for when it will appear in the UI. This will be set up in the `SwapErc20Modal` component. It is displayed if the user has approved the token allowance, and clicked "Review Swap" to finalize the swap selection.
 
 ```
-// Add QuoteView logic in /app/page.tsx
-export default function SwapErc20Modal({ userAddress }: SendErc20ModalProps) {
-    // previous logic
+// Add ConfirmSwapButton component in /src/components/web3/account.tsx
+export default function SwapErc20Modal({ userAddress }: SwapErc20ModalProps) {
+  // previous logic
+  ...
+  return(
     ...
-    return(
-      ...
-      <form className="flex flex-col w-full gap-y-8">
-        <div className="w-full flex flex-col gap-y-4">
-          <div className="w-full flex items-center gap-1.5">
-            <Image
-              alt={buyToken}
-              className="h-9 w-9 mr-2 rounded-md"
-              src={POLYGON_TOKENS_BY_SYMBOL[sellToken].logoURI}
-              width={6}
-              height={6}
-            />
-            <Select
-              onValueChange={handleSellTokenChange}
-              defaultValue="wmatic"
-            >
-              <SelectTrigger className="w-1/4">
-                <SelectValue placeholder="Theme" />
-              </SelectTrigger>
-              <SelectContent>
-                {POLYGON_TOKENS.map((token: Token) => {
-                  return (
-                    <SelectItem
-                      key={token.address}
-                      value={token.symbol.toLowerCase()}
-                    >
-                      {token.symbol}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-3/4"
-              type="number"
-              name="sell-amount"
-              id="sell-amount"
-              value={
-                finalize && quote
-                  ? formatUnits(
-                      BigInt(quote.sellAmount),
-                      sellTokenDecimals
-                    )
-                  : sellAmount
-              }
-              placeholder="Enter amount..."
-              required
-              onChange={(event) => {
-                setSwapDirection('sell');
-                setSellAmount(event.target.value);
-              }}
-            />
-          </div>
-          <div className="w-full flex items-center gap-1.5">
-            <Image
-              alt={buyToken}
-              className="h-9 w-9 mr-2 rounded-md"
-              src={POLYGON_TOKENS_BY_SYMBOL[buyToken].logoURI}
-              width={6}
-              height={6}
-            />
-            <Select
-              onValueChange={handleBuyTokenChange}
-              defaultValue="usdc"
-            >
-              <SelectTrigger className="w-1/4">
-                <SelectValue placeholder="Buy..." />
-              </SelectTrigger>
-              <SelectContent>
-                {POLYGON_TOKENS.map((token: Token) => {
-                  return (
-                    <SelectItem
-                      key={token.address}
-                      value={token.symbol.toLowerCase()}
-                    >
-                      {token.symbol}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            <Input
-              className="w-3/4"
-              type="number"
-              id="buy-amount"
-              name="buy-amount"
-              value={
-                finalize && quote
-                  ? formatUnits(BigInt(quote.buyAmount), buyTokenDecimals)
-                  : buyAmount
-              }
-              placeholder="Enter amount..."
-              disabled
-              onChange={(event) => {
-                setSwapDirection('buy');
-                setSellAmount(event.target.value);
-              }}
-            />
-          </div>
-        </div>
-        {finalize && price ? (
-          <ConfirmSwapButton quote={quote} setFinalize={setFinalize} />
-        ) : (
-          <ApproveOrReviewButton
-            sellAmount={sellAmount}
-            sellTokenAddress={POLYGON_TOKENS_BY_SYMBOL[sellToken].address}
-            userAddress={userAddress}
-            onClick={getQuote}
-            disabled={insufficientBalance}
+    <form
+      className="flex flex-col w-full gap-y-8"
+      onSubmit={handleSwap}
+    >
+      <div className="w-full flex flex-col gap-y-4">
+        <div className="w-full flex items-center gap-1.5">
+          <Image
+            alt={buyToken}
+            className="h-9 w-9 mr-2 rounded-md"
+            src={POLYGON_TOKENS_BY_SYMBOL[sellToken].logoURI}
+            width={6}
+            height={6}
           />
-        )}
-      </form>
-    )
+          <Select
+            onValueChange={handleSellTokenChange}
+            defaultValue="wmatic"
+          >
+            <SelectTrigger className="w-1/4">
+              <SelectValue placeholder="Theme" />
+            </SelectTrigger>
+            <SelectContent>
+              {POLYGON_TOKENS.map((token: Token) => {
+                return (
+                  <SelectItem
+                    key={token.address}
+                    value={token.symbol.toLowerCase()}
+                  >
+                    {token.symbol}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          <Input
+            className="w-3/4"
+            type="number"
+            name="sell-amount"
+            id="sell-amount"
+            placeholder="Enter amount..."
+            required
+            onChange={(event) => {
+              setSwapDirection('sell');
+              setSellAmount(event.target.value);
+            }}
+          />
+        </div>
+        <div className="w-full flex items-center gap-1.5">
+          <Image
+            alt={buyToken}
+            className="h-9 w-9 mr-2 rounded-md"
+            src={POLYGON_TOKENS_BY_SYMBOL[buyToken].logoURI}
+            width={6}
+            height={6}
+          />
+          <Select
+            onValueChange={handleBuyTokenChange}
+            defaultValue="usdc"
+          >
+            <SelectTrigger className="w-1/4">
+              <SelectValue placeholder="Buy..." />
+            </SelectTrigger>
+            <SelectContent>
+              {POLYGON_TOKENS.map((token: Token) => {
+                return (
+                  <SelectItem
+                    key={token.address}
+                    value={token.symbol.toLowerCase()}
+                  >
+                    {token.symbol}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          <Input
+            className="w-3/4"
+            type="number"
+            id="buy-amount"
+            name="buy-amount"
+            value={buyAmount}
+            placeholder="Enter amount..."
+            disabled
+            onChange={(event) => {
+              setSwapDirection('buy');
+              setSellAmount(event.target.value);
+            }}
+          />
+        </div>
+      </div>
+      {finalize && price ? (
+        <ConfirmSwapButton
+          userAddress={userAddress as `0x${string}`}
+          price={price}
+          quote={quote}
+          setQuote={setQuote}
+          setFinalize={setFinalize}
+        />
+      ) : (
+        <ApproveOrReviewButton
+          sellTokenAddress={POLYGON_TOKENS_BY_SYMBOL[sellToken].address}
+          userAddress={userAddress as `0x${string}`}
+          onClick={() => setFinalize(true)}
+          disabled={inSufficientBalance}
+          price={price}
+        />
+      )}
+    </form>
+  )
+}
 
-  function ApproveOrReviewButton({
+function ApproveOrReviewButton({
+  ...
+}) {
+  ...
+  return(
     ...
-  }) {
-    ...
-    return(
-      ...
-    )
-  }
+  )
+}
 
-  function ConfirmSwapButton({
+function ConfirmSwapButton({
+  ...
+}) {
+  ...
+  return(
     ...
-  }) {
-    ...
-    return(
-      ...
-    )
-  }
+  )
+}
 ```
 
 ### 2. Fetch a firm quote
 
-Fetch a firm quote using the [`useEffect`](https://react.dev/reference/react/useEffect) hook. We created this function in the previous lesson, time to use it in our component by passing it the quote state variable
+Fetch a firm quote using the [`useEffect`](https://react.dev/reference/react/useEffect) hook.
 
 ```
- async function getQuote(e: React.MouseEvent<HTMLButtonElement>) {
-    e.preventDefault();
-    if (!userAddress || !price) {
-      toast.warning('You must connect your wallet...');
-      return;
-    }
-
+ // Fetch quote data
+  useEffect(() => {
     const params = {
-      sellToken: price.sellTokenAddress,
-      buyToken: price.buyTokenAddress,
+      chainId: 137,
+      sellToken: price.sellToken,
+      buyToken: price.buyToken,
       sellAmount: price.sellAmount,
-      takerAddress: userAddress,
+      taker: userAddress,
+      swapFeeRecipient: FEE_RECIPIENT,
+      swapFeeBps: AFFILIATE_FEE,
+      swapFeeToken: price.buyToken,
+      tradeSurplusRecipient: FEE_RECIPIENT,
     };
-    try {
+
+    async function main() {
       const response = await fetch(`/api/quote?${qs.stringify(params)}`);
       const data = await response.json();
+      console.log(data);
       setQuote(data);
-      setFinalize(true);
-    } catch (error) {
-      console.error(error);
     }
-  }
+    main();
+  }, [
+    price.sellToken,
+    price.buyToken,
+    price.sellAmount,
+    userAddress,
+    setQuote,
+  ]);
 ```
 
 Next, setup the [route handler](https://nextjs.org/docs/app/building-your-application/routing/route-handlers) for the `/quote` API endpoint
 
+`/src/app/api/quote/route.ts`
+
 ```
-// Setup /app/api/quote/route.ts
-import { type NextRequest } from "next/server";
+import { type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
-  const res = await fetch(
-    `https://polygon.api.0x.org/swap/v1/quote?${searchParams}`,
-    {
-      headers: {
-        "0x-api-key": process.env.NEXT_PUBLIC_ZEROEX_API_KEY as string,
-      },
-    }
-  );
-  const data = await res.json();
+  try {
+    const res = await fetch(
+      `https://api.0x.org/swap/permit2/quote?${searchParams}`,
+      {
+        headers: {
+          '0x-api-key': process.env.NEXT_PUBLIC_ZEROEX_API_KEY as string,
+          '0x-version': 'v2',
+        },
+      }
+    );
+    const data = await res.json();
 
-  return Response.json(data);
+    console.log('quote data', data);
+
+    console.log(
+      'quote api',
+      `https://api.0x.org/swap/permit2/quote?${searchParams}`
+    );
+
+    return Response.json(data);
+  } catch (error) {
+    console.log(error);
+  }
 }
 ```
 
@@ -318,75 +396,70 @@ export async function GET(request: NextRequest) {
 To submit our transaction, we will hook up the [`useSendTransaction` hook](https://wagmi.sh/react/api/hooks/useSendTransaction)
 
 ```
-// In /app/components/quote.tsx
 ...
-  const {
-      data: swapTxHash,
-      isPending,
-      sendTransaction,
-    } = useSendTransaction();
+      <Button
+        disabled={isPending}
+        onClick={async (event) => {
+          event.preventDefault();
 
-    const { isLoading: isConfirming, isSuccess: isConfirmed } =
-      useWaitForTransactionReceipt({
-        hash: swapTxHash,
-      });
+          console.log('submitting quote to blockchain');
+          console.log('to', quote.transaction.to);
+          console.log('value', quote.transaction.value);
+
+          // On click, (1) Sign the Permit2 EIP-712 message returned from quote
+          if (quote.permit2?.eip712) {
+            let signature: Hex | undefined;
+            try {
+              signature = await signTypedDataAsync(quote.permit2.eip712);
+              console.log('Signed permit2 message from quote response');
+            } catch (error) {
+              console.error('Error signing permit2 coupon:', error);
+            }
+
+            // (2) Append signature length and signature data to calldata
+
+            if (signature && quote?.transaction?.data) {
+              const signatureLengthInHex = numberToHex(size(signature), {
+                signed: false,
+                size: 32,
+              });
+
+              const transactionData = quote.transaction.data as Hex;
+              const sigLengthHex = signatureLengthInHex as Hex;
+              const sig = signature as Hex;
+
+              quote.transaction.data = concat([
+                transactionData,
+                sigLengthHex,
+                sig,
+              ]);
+            } else {
+              throw new Error('Failed to obtain signature or transaction data');
+            }
+          }
+
+          // (3) Submit the transaction with Permit2 signature
+
+          if (sendTransaction) {
+            sendTransaction({
+              account: walletClient?.account.address,
+              gas: !!quote?.transaction.gas
+                ? BigInt(quote?.transaction.gas)
+                : undefined,
+              to: quote?.transaction.to,
+              data: quote.transaction.data, // submit
+              value: quote?.transaction.value
+                ? BigInt(quote.transaction.value)
+                : undefined, // value is used for native tokens
+              chainId: 137,
+            });
+          }
+        }}
+      >
 ...
 ```
 
 When the user clicks the "Place Order" button, we can use wagmi's [`sendTransaction`](https://wagmi.sh/core/api/actions/sendTransaction#sendtransaction) create, sign, and send the transaction. We will need to pull out the required params (gas, to, value, data, gasPrice) from our API quote response and pass them to `sendTransaction`. This will trigger an action for the user to sign the transaction from their wallet. If the user has enough gas and has signed the transaction, the order is submitted to the network.
-
-```
-  ...
-    if (!quote) {
-      return <div>Getting best quote...</div>;
-    }
-
-    return (
-      <div className="flex flex-col gap-y-2">
-        <Button
-          variant="ghost"
-          onClick={(event) => {
-            event.preventDefault();
-            setFinalize(false);
-          }}
-        >
-          Modify swap
-        </Button>
-        <Button
-          disabled={isPending}
-          onClick={(event) => {
-            event.preventDefault();
-
-            sendTransaction &&
-              sendTransaction({
-                gas: quote?.gas,
-                to: quote?.to,
-                value: quote?.value, // only used for native tokens
-                data: quote?.data,
-                gasPrice: quote?.gasPrice,
-              });
-          }}
-        >
-          {isPending ? 'Confirming...' : 'Place Order'}
-        </Button>
-        {swapTxHash && (
-          <div className="pt-4 flex flex-col items-center">
-            <Link
-              className="hover:text-accent flex items-center gap-x-1.5"
-              href={`https://polygonscan.com/tx/${swapTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View tx on explorer <ExternalLinkIcon className="h4 w-4" />
-            </Link>
-            {isConfirming && <div>Waiting for confirmation...</div>}
-            {isConfirmed && <div>Transaction confirmed.</div>}
-          </div>
-        )}
-      </div>
-    );
-  ...
-```
 
 ### 4. Wait for transaction receipt
 

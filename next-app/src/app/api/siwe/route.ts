@@ -2,7 +2,7 @@ import Session from '@/lib/session';
 import { NextRequest, NextResponse } from 'next/server';
 import { SiweErrorType, SiweMessage, generateNonce } from 'siwe';
 
-export const tap = async <T>(
+const tap = async <T>(
   value: T,
   cb: (value: T) => Promise<unknown>
 ): Promise<T> => {

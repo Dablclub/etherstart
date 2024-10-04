@@ -141,11 +141,15 @@ export default function SwapErc20Modal({ userAddress }: SwapErc20ModalProps) {
       const response = await fetch(`/api/price?${qs.stringify(params)}`);
       const data = await response.json();
 
+      console.log(data);
       if (data?.validationErrors?.length > 0) {
         // error for sellAmount too low
         setError(data.validationErrors);
       } else {
         setError([]);
+      }
+      if (data.error) {
+        toast.error(data.error);
       }
       if (data.buyAmount) {
         setBuyAmount(formatUnits(data.buyAmount, buyTokenObject.decimals));

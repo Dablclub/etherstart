@@ -27,7 +27,7 @@ const siweConfig = {
       statement: 'Hey dabler, sign-in to our cool app!!!',
     }).prepareMessage();
   },
-  verifyMessage: ({
+  verifyMessage: async ({
     message,
     signature,
   }: {
@@ -36,8 +36,8 @@ const siweConfig = {
   }) => {
     return fetch(`/api/siwe`, {
       method: 'POST',
-      body: JSON.stringify({ message, signature }),
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, signature }),
     }).then((res) => res.ok);
   },
   getSession: async () => {

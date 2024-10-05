@@ -18,7 +18,7 @@ The logic to check if the user has approved a token allowance the selected sell 
 2. If there is no allowance, then we will write an approval to the sellToken's smart contract using wagmi's useSimulateContract() and useWriteContract().
 3. Lastly, use wagmi's useWaitForTransactionReceipt() to wait for the approval transaction to complete
 
-Note that approving an allowance is a transaction, which requires users to pay gas (e.g. user must hold the chain's native token, ETH on mainnet, MATIC on Polygon).
+Note that approving an allowance is a transaction, which requires users to pay gas (e.g. user must hold the chain's native token, ETH on mainnet, POL on Polygon).
 
 Need to quickly revoke an allowance while testing? To revoke an allowance, you can set the allowance to 0. This can be done programmatically or through a UI such as https://revoke.cash/ .
 

@@ -10,7 +10,7 @@ Thankfully there are several established sources of curated and open-sourced [To
 
 As developers, we can choose to ingest the entire list or customize our own token lists based off of these sources.
 
-For ERC20 tokens, these lists typically include crucial metadata - such as the token names (Wrapped Matic), symbol (MATIC), address, and logoURI - which can be leveraged by apps such as ours.
+For ERC20 tokens, these lists typically include crucial metadata - such as the token names (Wrapped Polygon Ecosystem Token), symbol (WPOL), address, and logoURI - which can be leveraged by apps such as ours.
 
 Let's learn how to retrieve a list of ERC20 tokens to populate the modal, so that a user can select a token to swap.
 
